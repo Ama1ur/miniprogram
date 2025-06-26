@@ -1,0 +1,729 @@
+openapi: 3.0.3
+info:
+  title: 学生考试分析与成绩展示小程序 API
+  description: 一个为学生提供考试成绩分析、学情诊断和成绩展示的微信小程序后端API。支持多维度成绩对比、偏科分析、失分分析和理想排名预测等功能。
+  version: 1.0.0
+
+servers:
+  - url: https://api.example.com/v1
+    description: 生产环境
+  - url: https://test-api.example.com/v1
+    description: 测试环境
+  - url: https://dev-api.example.com/v1
+    description: 开发环境
+
+tags:
+  - name: 认证 (Authentication)
+    description: 用户登录与身份认证接口
+  - name: 学生端 - 核心分析 (Student - Core Analysis)
+    description: 学生查看个人成绩与各项分析报告的核心接口
+  - name: 教师端 (Teacher)
+    description: 教师查看班级整体情况的相关接口
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - 认证 (Authentication)
+      summary: 用户登录与身份绑定
+      description: 用户通过微信 code 和学号/工号进行登录或绑定，成功后返回 JWT Token。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                  description: 通过 wx.login() 获取的临时登录凭证
+                userType:
+                  type: string
+                  enum: [student, teacher]
+                  description: 用户角色
+                identityId:
+                  type: string
+                  description: 学生的学号或教师的工号
+                password:
+                  type: string
+                  description: 初始密码，例如身份证后六位
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: 用于后续请求认证的 JWT
+                  userInfo:
+                    $ref: '#/components/schemas/UserInfo'
+        '401':
+          description: 认证失败，如学号或密码错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /student/exams:
+    get:
+      tags:
+        - 学生端 - 核心分析
+      summary: 获取历史考试列表
+      description: 返回当前学生参加过的所有历史考试列表，用于在小程序首页展示。
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: 页码
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: 每页数量
+      responses:
+        '200':
+          description: 成功获取考试列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        exam_id:
+                          type: string
+                          description: 考试的唯一ID
+                        exam_name:
+                          type: string
+                          description: 考试名称，如“2024学年第一学期期末考试”
+                        exam_date:
+                          type: string
+                          format: date
+                          description: 考试日期
+                        total_score:
+                          type: number
+                          description: 该次考试的总分
+                        overall_level:
+                          type: string
+                          description: 该次考试的综合等级
+                  total:
+                    type: integer
+                    description: 总记录数
+
+  /student/exams/{examId}/scores:
+    get:
+      tags:
+        - 学生端 - 核心分析
+      summary: 01-获取考试成绩页数据
+      description: 获取指定考试的总分、等级以及各科目成绩。对应“考试成绩页”。
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: examId
+          required: true
+          schema:
+            type: string
+          description: 考试的唯一ID
+      responses:
+        '200':
+          description: 成功获取成绩数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page01_ExamScores'
+        '404':
+          description: 找不到指定的考试或成绩
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /student/exams/{examId}/level-position:
+    get:
+      tags:
+        - 学生端 - 核心分析
+      summary: 02-获取等级位置页数据
+      description: 获取指定考试的成绩对比表格数据。对应“等级位置页”。
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: examId
+          required: true
+          schema:
+            type: string
+          description: 考试的唯一ID
+        - in: query
+          name: mode
+          required: true
+          schema:
+            type: string
+            enum: [class, grade]
+          description: 对比模式，班级或年级
+      responses:
+        '200':
+          description: 成功获取等级位置数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page02_LevelPosition'
+
+  /student/exams/{examId}/pk-analysis:
+    get:
+      tags:
+        - 学生端 - 核心分析
+      summary: 03-获取成绩PK页数据
+      description: 获取学生在班级内的排名和击败率。对应“成绩PK页”。
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: examId
+          required: true
+          schema:
+            type: string
+          description: 考试的唯一ID
+        - in: query
+          name: classId
+          schema:
+            type: string
+          description: 班级ID，用于切换查看不同班级的PK情况
+      responses:
+        '200':
+          description: 成功获取PK数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page03_PKAnalysis'
+
+  /student/exams/{examId}/ideal-ranking:
+    post:
+      tags:
+        - 学生端 - 核心分析
+      summary: 04-计算并获取理想排名页数据
+      description: 用户提交各科理想分数，后端计算新的总分和预测排名。对应“理想排名页”。
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: examId
+          required: true
+          schema:
+            type: string
+          description: 考试的唯一ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ideal_scores:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      subject:
+                        type: string
+                        description: 科目名称
+                      ideal_score:
+                        type: number
+                        description: 设定的理想分数
+      responses:
+        '200':
+          description: 成功计算理想排名
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page04_IdealRanking'
+
+  /student/exams/{examId}/bias-analysis:
+    get:
+      tags:
+        - 学生端 - 核心分析
+      summary: 05-获取偏科分析页数据
+      description: 获取用于生成雷达图的数据以及优势、劣势学科诊断。对应“偏科分析页”。
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: examId
+          required: true
+          schema:
+            type: string
+          description: 考试的唯一ID
+      responses:
+        '200':
+          description: 成功获取偏科分析数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page05_BiasAnalysis'
+
+  /student/trend-analysis:
+    get:
+      tags:
+        - 学生端 - 核心分析
+      summary: 06-获取历次趋势页数据
+      description: 获取学生历次考试击败率变化，用于生成折线图。对应“历次趋势页”。
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: mode
+          required: true
+          schema:
+            type: string
+            enum: [class, school]
+          description: 对比模式，班级或校级
+      responses:
+        '200':
+          description: 成功获取历次趋势数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page06_Trend'
+
+  /student/exams/{examId}/question-analysis:
+    get:
+      tags:
+        - 学生端 - 核心分析
+      summary: 07-获取试题分析页数据
+      description: 根据所选科目，获取该科目的各题目得分情况。对应“试题分析页”。
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: examId
+          required: true
+          schema:
+            type: string
+          description: 考试的唯一ID
+        - in: query
+          name: subject
+          required: true
+          schema:
+            type: string
+          description: 科目名称，如“语文”、“数学”等
+      responses:
+        '200':
+          description: 成功获取试题分析数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page07_QuestionAnalysis'
+
+  /student/exams/{examId}/loss-analysis:
+    get:
+      tags:
+        - 学生端 - 核心分析
+      summary: 08-获取失分分析页数据
+      description: 获取按题目难度分组的作答情况，以及失分、优势和潜力题分析。对应“失分分析页”。
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: examId
+          required: true
+          schema:
+            type: string
+          description: 考试的唯一ID
+      responses:
+        '200':
+          description: 成功获取失分分析数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page08_LossAnalysis'
+
+  /student/exams/{examId}/knowledge-analysis:
+    get:
+      tags:
+        - 学生端 - 核心分析
+      summary: 09-获取知识点分析页数据
+      description: 获取各知识点的得分率对比和掌握程度。对应“知识点分析页”。
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: examId
+          required: true
+          schema:
+            type: string
+          description: 考试的唯一ID
+      responses:
+        '200':
+          description: 成功获取知识点分析数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page09_KnowledgeAnalysis'
+
+  /teacher/classes:
+    get:
+      tags:
+        - 教师端 (Teacher)
+      summary: 获取教师所教班级列表
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    class_id:
+                      type: string
+                    class_name:
+                      type: string
+
+  /teacher/classes/{classId}/scores:
+    get:
+      tags:
+        - 教师端 (Teacher)
+      summary: 获取班级成绩单
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: classId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: examId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功获取班级成绩
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statistics:
+                    type: object
+                    properties:
+                      avgScore:
+                        type: number
+                      maxScore:
+                        type: number
+                      passRate:
+                        type: number
+                  students:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        student_id:
+                          type: string
+                        student_name:
+                          type: string
+                        total_score:
+                          type: number
+                        rank:
+                          type: integer
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 在需要认证的接口的请求头中加入 "Authorization: Bearer {token}"
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: 业务错误码
+        message:
+          type: string
+          description: 错误信息
+
+    UserInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [student, teacher]
+        avatar:
+          type: string
+          format: uri
+
+    Page01_ExamScores:
+      type: object
+      properties:
+        total_score:
+          type: number
+          description: 学生总分
+        overall_level:
+          type: string
+          description: 综合等级
+        subject_scores:
+          type: array
+          items:
+            type: object
+            properties:
+              subject:
+                type: string
+                description: 科目名称
+              score:
+                type: number
+                description: 科目得分
+              level:
+                type: string
+                description: 科目等级
+
+    Page02_LevelPosition:
+      type: object
+      properties:
+        grouping_mode:
+          type: string
+          enum: [班级, 年级]
+          description: 当前分组模式
+        class_size:
+          type: integer
+          description: 班级人数
+        grade_size:
+          type: integer
+          description: 年级人数
+        subject_comparison:
+          type: array
+          items:
+            type: object
+            properties:
+              subject:
+                type: string
+                description: 科目名称
+              score:
+                type: number
+                description: 本人分数
+              rank:
+                type: integer
+                description: 名次
+              avg:
+                type: number
+                description: 平均分
+              max:
+                type: number
+                description: 最高分
+              diff:
+                type: number
+                description: 与最高分的差距
+
+    Page03_PKAnalysis:
+      type: object
+      properties:
+        rank_percent:
+          type: number
+          description: 击败率，如 98
+        rank_index:
+          type: integer
+          description: 排名，如 666
+        class_total_students:
+          type: integer
+          description: 班级总人数
+
+    Page04_IdealRanking:
+      type: object
+      properties:
+        subjects:
+          type: array
+          items:
+            type: object
+            properties:
+              subject:
+                type: string
+              current_score:
+                type: number
+              ideal_score:
+                type: number
+              max_score:
+                type: number
+        new_total_score:
+          type: number
+          description: 计算出的新总分
+        predicted_rank:
+          type: integer
+          description: 预测排名
+        rank_change:
+          type: integer
+          description: 排名变化，正数表示提升
+        current_rank:
+          type: integer
+          description: 当前排名
+
+    Page05_BiasAnalysis:
+      type: object
+      properties:
+        radar_data:
+          type: array
+          items:
+            type: object
+            properties:
+              subject:
+                type: string
+              total_win_rate:
+                type: number
+              subject_win_rate:
+                type: number
+        strength_subjects:
+          type: array
+          items:
+            type: string
+          description: 优势学科列表
+        weak_subjects:
+          type: array
+          items:
+            type: string
+          description: 劣势学科列表
+
+    Page06_Trend:
+      type: object
+      properties:
+        trend_data:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                description: 考试日期或名称
+              class_win_rate:
+                type: number
+              school_win_rate:
+                type: number
+        trend_analysis:
+          type: string
+          description: 诊断分析文案
+
+    Page07_QuestionAnalysis:
+      type: object
+      properties:
+        selected_subject:
+          type: string
+          description: 当前选中的科目
+        available_subjects:
+          type: array
+          items:
+            type: string
+          description: 所有可供选择的科目列表
+        current_questions:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              type:
+                type: string
+              correct_answer:
+                type: string
+              full_score:
+                type: number
+              score:
+                type: number
+              analysis_url:
+                type: string
+                format: uri
+                nullable: true
+
+    Page08_LossAnalysis:
+      type: object
+      properties:
+        difficulty_analysis:
+          type: array
+          items:
+            type: object
+            properties:
+              level:
+                type: string
+                enum: [极易, 较易, 适中, 较难, 极难]
+              total_score:
+                type: number
+              count:
+                type: integer
+              correct:
+                type: integer
+              partial:
+                type: integer
+              rate:
+                type: number
+              question_numbers:
+                type: array
+                items:
+                  type: string
+        loss_questions:
+          type: object
+          properties:
+            全部丢分:
+              type: array
+              items:
+                type: string
+            部分丢分:
+              type: array
+              items:
+                type: string
+        优势得分题:
+          type: array
+          items:
+            type: string
+        潜力追分题:
+          type: array
+          items:
+            type: string
+        gain_prediction:
+          type: object
+          properties:
+            potential_gain_score:
+              type: number
+            rank_improvement:
+              type: integer
+
+    Page09_KnowledgeAnalysis:
+      type: object
+      properties:
+        knowledge_points:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              class_rate:
+                type: number
+              personal_rate:
+                type: number
+              level:
+                type: string
+                enum: [未掌握, 及格掌握, 优秀掌握]
+        tabs:
+          type: array
+          items:
+            type: string
+          description: 知识点页签列表
