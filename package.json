@@ -1,0 +1,61 @@
+{
+  "name": "miniprogram-score-report",
+  "version": "1.0.0",
+  "description": "一个现代化的学生成绩查询与分析微信小程序",
+  "main": "app.js",
+  "scripts": {
+    "dev": "npm run build:npm",
+    "build": "npm run build:npm",
+    "build:npm": "echo '请在微信开发者工具中执行：工具 -> 构建npm'",
+    "lint": "eslint --ext .js .",
+    "lint:fix": "eslint --ext .js . --fix",
+    "test": "jest",
+    "clean": "rm -rf miniprogram_npm"
+  },
+  "keywords": [
+    "微信小程序",
+    "WeChat MiniProgram",
+    "成绩查询",
+    "学情分析",
+    "教育",
+    "TDesign",
+    "F2",
+    "数据可视化"
+  ],
+  "author": {
+    "name": "Your Name",
+    "email": "your.email@example.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/miniprogram-score-report.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/miniprogram-score-report/issues"
+  },
+  "homepage": "https://github.com/yourusername/miniprogram-score-report#readme",
+  "dependencies": {
+    "@antv/f2": "^3.7.8",
+    "@antv/wx-f2": "^2.1.1",
+    "tdesign-miniprogram": "^1.4.7"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.22.0",
+    "@babel/preset-env": "^7.22.0",
+    "eslint": "^8.0.0",
+    "miniprogram-api-typings": "^3.12.0"
+  },
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
+  },
+  "miniprogram": {
+    "component": true
+  },
+  "browserslist": [
+    "last 2 versions",
+    "iOS >= 8",
+    "Android >= 4.4"
+  ]
+}
